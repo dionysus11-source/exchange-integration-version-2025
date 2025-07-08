@@ -36,45 +36,71 @@ export default function ExchangeMonitor() {
             }
             setIsLoading(true);
             try {
-                const [statusRes, rateRes] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/status`, getAuthConfig()),
-                    axios.get(`${API_BASE_URL}/rate`, getAuthConfig())
-                ]);
-
-                setMonitoring(statusRes.data.monitoring);
-                setPreviousMonitoring(statusRes.data.monitoring);
-                if (statusRes.data.settings) {
-                    const fetched = statusRes.data.settings;
-                    setSettings(prev => ({ 
-                        ...prev,
-                        upperLimit: fetched.upperLimit || '',
-                        lowerLimit: fetched.lowerLimit || '',
-                    }));
-                }
+                // Rate는 인증이 필요 없으므로 분리해서 먼저 호출
+                const rateRes = await axios.get(`${API_BASE_URL}/rate`);
                 setCurrentRate(rateRes.data.rate);
-
             } catch (error) {
-                console.error('Error fetching initial data:', error);
-            } finally {
-                setIsLoading(false);
+                console.error('Error fetching exchange rate:', error);
             }
+
+            if (token) {
+                try {
+                    const statusRes = await axios.get(`${API_BASE_URL}/status`, getAuthConfig());
+                    setMonitoring(statusRes.data.monitoring);
+                    setPreviousMonitoring(statusRes.data.monitoring);
+                    if (statusRes.data.settings) {
+                        const fetched = statusRes.data.settings;
+                        setSettings(prev => ({
+                            ...prev,
+                            upperLimit: fetched.upperLimit || '',
+                            lowerLimit: fetched.lowerLimit || '',
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error fetching status:', error);
+                    // 401 에러는 사용자가 아직 로그인하지 않은 상태일 수 있으므로 정상 처리
+                    if (isAxiosError(error) && error.response?.status === 401) {
+                        // Handle unauthorized gracefully
+                    }
+                }
+            }
+
+            setIsLoading(false);
         };
         fetchInitialData();
     }, [token, getAuthConfig]);
 
     useEffect(() => {
-        if (!token) return;
+        const fetchRate = async () => {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/rate`);
+                setCurrentRate(response.data.rate);
+            } catch (error) {
+                console.error('Error fetching exchange rate:', error);
+            }
+        };
+
+        // 최초 실행
+        fetchRate();
+        
+        const rateInterval = setInterval(fetchRate, 60000);
+
+        if (!token) {
+             return () => {
+                clearInterval(rateInterval);
+             }
+        }
 
         const fetchStatus = async () => {
             try {
                 const response = await axios.get(`${API_BASE_URL}/status`, getAuthConfig());
                 const isMonitoring = response.data.monitoring;
-                
+
                 if (previousMonitoring && !isMonitoring && monitoring) {
                     setAutoStoppedAlert('🚨 모니터링이 설정된 조건에 도달하여 자동으로 중지되었습니다!');
                     setTimeout(() => setAutoStoppedAlert(''), 10000);
                 }
-                
+
                 setPreviousMonitoring(monitoring);
                 setMonitoring(isMonitoring);
             } catch (error) {
@@ -82,17 +108,8 @@ export default function ExchangeMonitor() {
             }
         };
 
-        const fetchRate = async () => {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/rate`, getAuthConfig());
-                setCurrentRate(response.data.rate);
-            } catch (error) {
-                console.error('Error fetching exchange rate:', error);
-            }
-        };
 
         const statusInterval = setInterval(fetchStatus, 5000);
-        const rateInterval = setInterval(fetchRate, 60000);
 
         return () => {
             clearInterval(statusInterval);
