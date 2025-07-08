@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { jwtDecode } from 'jwt-decode';
 
 interface AuthContextType {
   token: string | null;
@@ -29,22 +30,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try to load token from localStorage on initial load
     const storedToken = localStorage.getItem('jwt_token');
     if (storedToken) {
-      setToken(storedToken);
+      try {
+        const decodedToken: { exp: number } = jwtDecode(storedToken);
+        if (decodedToken.exp * 1000 > Date.now()) {
+          setToken(storedToken);
+        } else {
+          // Token is expired
+          localStorage.removeItem('jwt_token');
+        }
+      } catch (error) {
+        console.error('Invalid token:', error);
+        localStorage.removeItem('jwt_token');
+      }
     }
     setLoading(false);
   }, []);
 
   const login = (newToken: string) => {
-    setToken(newToken);
-    localStorage.setItem('jwt_token', newToken);
+    try {
+      const decodedToken: { exp: number } = jwtDecode(newToken);
+      if (decodedToken.exp * 1000 > Date.now()) {
+        setToken(newToken);
+        localStorage.setItem('jwt_token', newToken);
+      } else {
+        // Provided token is expired
+        logout();
+      }
+    } catch (error) {
+      console.error('Invalid token on login:', error);
+      logout();
+    }
   };
 
   const logout = () => {
     setToken(null);
     localStorage.removeItem('jwt_token');
+    // Redirect to login page
+    window.location.href = '/login';
   };
   
   const isAuthenticated = !!token;
