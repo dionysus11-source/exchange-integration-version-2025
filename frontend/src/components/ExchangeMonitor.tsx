@@ -5,7 +5,7 @@ import axios, { isAxiosError, AxiosRequestConfig } from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { AlertTriangle, Bell, BellOff, Loader2 } from 'lucide-react';
 
-const API_BASE_URL = 'http://127.0.0.1:3001';
+const API_BASE_URL = 'http://dionysus11.ddns.net:3001';
 
 export default function ExchangeMonitor() {
     const { token } = useAuth();

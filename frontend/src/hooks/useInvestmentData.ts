@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { InvestmentRecord, ProfitRecord, OCRResult } from '@/types/investment';
 
-const API_BASE_URL = 'http://127.0.0.1:3001';
+const API_BASE_URL = 'http://dionysus11.ddns.net:3001';
 
 export function useInvestmentData() {
   const { token } = useAuth();

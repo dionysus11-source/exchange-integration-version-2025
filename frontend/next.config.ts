@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/:path*',
+        destination: 'http://dionysus11.ddns.net:3001/:path*',
       },
     ];
   },
