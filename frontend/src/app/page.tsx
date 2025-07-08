@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { AlertCircle, BarChart, Upload, Edit, Trash2, Monitor } from 'lucide-react';
+import { AlertCircle, BarChart, Upload, Edit, Trash2, Monitor, LogOut } from 'lucide-react';
 import ImageUploader from '@/components/ImageUploader';
 import ManualInput from '@/components/ManualInput';
 import InvestmentList from '@/components/InvestmentList';
@@ -104,6 +104,13 @@ export default function Home() {
               >
                 <Trash2 className="w-4 h-4 mr-1" />
                 데이터 초기화
+              </button>
+              <button
+                onClick={auth.logout}
+                className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                로그아웃
               </button>
             </div>
           </div>
