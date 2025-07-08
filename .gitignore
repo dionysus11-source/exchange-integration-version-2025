@@ -1,2 +1,4 @@
 *node_modules/*
 node_modules/
+backend/users.json
+backend/telegram_config.json

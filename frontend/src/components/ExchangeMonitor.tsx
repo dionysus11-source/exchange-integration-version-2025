@@ -1,32 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import axios, { isAxiosError } from 'axios';
+import { useState, useEffect, useCallback } from 'react';
+import axios, { isAxiosError, AxiosRequestConfig } from 'axios';
+import { useAuth } from '@/context/AuthContext';
 import { AlertTriangle, Bell, BellOff, Loader2 } from 'lucide-react';
 
-// TODO: 통합된 백엔드 API URL로 수정 필요
-const API_URL = '/api'; // Next.js 프록시를 사용한다고 가정
+const API_BASE_URL = 'http://127.0.0.1:3001';
 
 export default function ExchangeMonitor() {
+    const { token } = useAuth();
     const [monitoring, setMonitoring] = useState(false);
     const [previousMonitoring, setPreviousMonitoring] = useState(false);
     const [settings, setSettings] = useState({
         upperLimit: '',
         lowerLimit: '',
-        telegramToken: '',
-        telegramChatId: ''
     });
     const [currentRate, setCurrentRate] = useState<number | null>(null);
     const [autoStoppedAlert, setAutoStoppedAlert] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
+    const getAuthConfig = useCallback((): AxiosRequestConfig => {
+        if (!token) return {};
+        return {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        };
+    }, [token]);
+
     useEffect(() => {
         const fetchInitialData = async () => {
+            if (!token) {
+                setIsLoading(false);
+                return;
+            }
             setIsLoading(true);
             try {
                 const [statusRes, rateRes] = await Promise.all([
-                    axios.get(`${API_URL}/status`),
-                    axios.get(`${API_URL}/rate`)
+                    axios.get(`${API_BASE_URL}/status`, getAuthConfig()),
+                    axios.get(`${API_BASE_URL}/rate`, getAuthConfig())
                 ]);
 
                 setMonitoring(statusRes.data.monitoring);
@@ -37,8 +49,6 @@ export default function ExchangeMonitor() {
                         ...prev,
                         upperLimit: fetched.upperLimit || '',
                         lowerLimit: fetched.lowerLimit || '',
-                        telegramToken: fetched.telegramToken || '',
-                        telegramChatId: fetched.telegramChatId || '',
                     }));
                 }
                 setCurrentRate(rateRes.data.rate);
@@ -50,12 +60,14 @@ export default function ExchangeMonitor() {
             }
         };
         fetchInitialData();
-    }, []);
+    }, [token, getAuthConfig]);
 
     useEffect(() => {
+        if (!token) return;
+
         const fetchStatus = async () => {
             try {
-                const response = await axios.get(`${API_URL}/status`);
+                const response = await axios.get(`${API_BASE_URL}/status`, getAuthConfig());
                 const isMonitoring = response.data.monitoring;
                 
                 if (previousMonitoring && !isMonitoring && monitoring) {
@@ -72,7 +84,7 @@ export default function ExchangeMonitor() {
 
         const fetchRate = async () => {
             try {
-                const response = await axios.get(`${API_URL}/rate`);
+                const response = await axios.get(`${API_BASE_URL}/rate`, getAuthConfig());
                 setCurrentRate(response.data.rate);
             } catch (error) {
                 console.error('Error fetching exchange rate:', error);
@@ -86,7 +98,7 @@ export default function ExchangeMonitor() {
             clearInterval(statusInterval);
             clearInterval(rateInterval);
         };
-    }, [monitoring, previousMonitoring]);
+    }, [monitoring, previousMonitoring, token, getAuthConfig]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -95,7 +107,11 @@ export default function ExchangeMonitor() {
 
     const startMonitoring = async () => {
         try {
-            await axios.post(`${API_URL}/start`, settings);
+            const dataToSend = {
+                upperLimit: settings.upperLimit,
+                lowerLimit: settings.lowerLimit,
+            };
+            await axios.post(`${API_BASE_URL}/start`, dataToSend, getAuthConfig());
             setMonitoring(true);
         } catch (error) {
             console.error('Error starting monitoring:', error);
@@ -109,9 +125,9 @@ export default function ExchangeMonitor() {
 
     const stopMonitoring = async () => {
         try {
-            await axios.post(`${API_URL}/stop`);
+            await axios.post(`${API_BASE_URL}/stop`, {}, getAuthConfig());
             setMonitoring(false);
-            setSettings({ upperLimit: '', lowerLimit: '', telegramToken: '', telegramChatId: '' });
+            setSettings({ upperLimit: '', lowerLimit: '' });
         } catch (error) {
             console.error('Error stopping monitoring:', error);
             if (isAxiosError(error)) {
@@ -157,14 +173,6 @@ export default function ExchangeMonitor() {
                     <div>
                         <label htmlFor="lowerLimit" className="block text-sm font-medium text-gray-700">하한선</label>
                         <input type="number" name="lowerLimit" id="lowerLimit" value={settings.lowerLimit} onChange={handleInputChange} disabled={monitoring} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-                    </div>
-                    <div className="sm:col-span-2">
-                        <label htmlFor="telegramToken" className="block text-sm font-medium text-gray-700">텔레그램 봇 토큰</label>
-                        <input type="text" name="telegramToken" id="telegramToken" value={settings.telegramToken} onChange={handleInputChange} disabled={monitoring} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-                    </div>
-                    <div className="sm:col-span-2">
-                        <label htmlFor="telegramChatId" className="block text-sm font-medium text-gray-700">텔레그램 채팅 ID</label>
-                        <input type="text" name="telegramChatId" id="telegramChatId" value={settings.telegramChatId} onChange={handleInputChange} disabled={monitoring} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                     </div>
                 </div>
                 <div className="mt-6 flex justify-between items-center">

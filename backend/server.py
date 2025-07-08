@@ -14,9 +14,19 @@ import uuid
 import subprocess
 import json
 import base64
+import datetime
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
+
+# --- File Paths ---
+# Build paths relative to the script's location to avoid CWD issues.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+USERS_FILE = os.path.join(SCRIPT_DIR, 'users.json')
+TELEGRAM_CONFIG_FILE = os.path.join(SCRIPT_DIR, 'telegram_config.json')
+DB_PATH = os.path.join(SCRIPT_DIR, 'exchange-diary.db')
 
 # Global variables
 monitoring = False
@@ -35,8 +45,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- Database Setup ---
-DB_PATH = 'exchange-diary.db'
-
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -175,16 +183,65 @@ def monitor_loop():
         check_rate()
         time.sleep(60)  # 60초마다 체크
 
+# --- JWT Secret Key ---
+# A strong, secret key is essential for security.
+# In a real application, this should be loaded from a secure configuration.
+SECRET_KEY = "your-very-secret-key"
+
+# --- Token Verification Decorator ---
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            # Decode the token using our secret key
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            # You can, for example, pass the user data to the decorated function
+            # current_user = get_user_by_id(data['user_id'])
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token is invalid!'}), 401
+
+        return f(*args, **kwargs)
+
+    return decorated
+
 @app.route('/start', methods=['POST'])
+@token_required
 def start_monitoring():
     global monitoring, monitor_thread, settings, bot
     
     if monitoring:
         return 'Monitoring is already running', 400
     
-    settings = request.json
-    if not settings.get('telegramToken') or not settings.get('telegramChatId'):
-        return 'Telegram token and chat ID are required', 400
+    data = request.json
+    
+    # Load Telegram config from file
+    try:
+        with open(TELEGRAM_CONFIG_FILE, 'r') as f:
+            telegram_config = json.load(f)
+    except FileNotFoundError:
+        return 'Telegram config file not found', 500
+        
+    if not telegram_config.get('telegramToken') or not telegram_config.get('telegramChatId'):
+        return 'Telegram token or chat ID is missing in config file', 500
+
+    # Update settings with Telegram config and limits from request
+    settings = {
+        'telegramToken': telegram_config['telegramToken'],
+        'telegramChatId': telegram_config['telegramChatId'],
+        'upperLimit': data.get('upperLimit'),
+        'lowerLimit': data.get('lowerLimit')
+    }
     
     # 숫자 값들을 float로 변환
     try:
@@ -208,6 +265,7 @@ def start_monitoring():
         return f'Error starting monitoring: {e}', 500
 
 @app.route('/stop', methods=['POST'])
+@token_required
 def stop_monitoring():
     global monitoring
     
@@ -218,6 +276,7 @@ def stop_monitoring():
     return 'Monitoring stopped'
 
 @app.route('/status', methods=['GET'])
+@token_required
 def get_status():
     # Create a copy of settings and remove sensitive information
     display_settings = settings.copy()
@@ -231,9 +290,40 @@ def get_status():
         'settings': display_settings
     })
 
+# --- Login Endpoint ---
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    if not data or not data.get('id') or not data.get('password'):
+        return jsonify({"msg": "Missing id or password"}), 400
+
+    username = data.get('id')
+    password = data.get('password')
+
+    # Load users from the JSON file
+    try:
+        with open(USERS_FILE, 'r') as f:
+            users = json.load(f)
+    except FileNotFoundError:
+        return jsonify({"msg": "Users file not found"}), 500
+    
+    # Find user
+    user = next((user for user in users if user['id'] == username), None)
+
+    if user and user['password'] == password:
+        # User authenticated, create a token
+        token = jwt.encode({
+            'user_id': user['id'],
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        }, SECRET_KEY, algorithm="HS256")
+        return jsonify({'token': token})
+
+    return jsonify({"msg": "Bad username or password"}), 401
+
 # --- Diary App API Endpoints ---
 
 @app.route('/api/investments', methods=['GET'])
+@token_required
 def get_all_investments():
     try:
         conn = get_db_connection()
@@ -278,6 +368,7 @@ def find_matching_buy_record(sell_record):
     return dict(record) if record else None
 
 @app.route('/api/investments', methods=['POST'])
+@token_required
 def add_investment():
     try:
         body = request.json
@@ -349,6 +440,7 @@ def add_investment():
         return jsonify({'error': '서버 오류'}), 500
 
 @app.route('/api/investments', methods=['DELETE'])
+@token_required
 def delete_data():
     profit_id = request.args.get('profitId')
     try:
@@ -374,6 +466,7 @@ def delete_data():
         return jsonify({'error': '데이터 삭제 실패'}), 500
 
 @app.route('/api/investments/<string:investment_id>', methods=['DELETE'])
+@token_required
 def delete_investment(investment_id):
     try:
         conn = get_db_connection()
@@ -404,6 +497,7 @@ def delete_investment(investment_id):
         return jsonify({'error': '기록을 삭제하는 중 오류가 발생했습니다.'}), 500
 
 @app.route('/api/ocr', methods=['POST'])
+@token_required
 def ocr_from_image():
     try:
         data = request.json
@@ -412,7 +506,7 @@ def ocr_from_image():
             return jsonify({'error': 'No image data provided'}), 400
 
         # Create a temporary file to store the image
-        temp_dir = 'temp'
+        temp_dir = os.path.join(SCRIPT_DIR, 'temp')
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         

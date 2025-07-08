@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { AlertCircle, BarChart, Upload, Edit, Trash2, Monitor } from 'lucide-react';
 import ImageUploader from '@/components/ImageUploader';
 import ManualInput from '@/components/ManualInput';
@@ -13,6 +15,15 @@ import { OCRResult } from '@/types/investment';
 type Tab = 'upload' | 'manual' | 'list' | 'monthly' | 'monitor';
 
 export default function Home() {
+  const router = useRouter();
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      router.push('/login');
+    }
+  }, [auth.isLoading, auth.isAuthenticated, router]);
+
   const [activeTab, setActiveTab] = useState<Tab>('upload');
   const [message, setMessage] = useState<string>('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -67,6 +78,14 @@ export default function Home() {
     { id: 'monthly' as Tab, label: '투자 완료', icon: BarChart },
     { id: 'monitor' as Tab, label: '환율 모니터링', icon: Monitor }
   ];
+
+  if (auth.isLoading || !auth.isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

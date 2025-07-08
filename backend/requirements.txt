@@ -6,4 +6,5 @@ lxml==4.9.3
 python-telegram-bot==20.7
 easyocr
 torch
-torchvision 
+torchvision
+PyJWT==2.8.0 
