@@ -3,25 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { InvestmentRecord, ProfitRecord, OCRResult } from '@/types/investment';
-
-const API_BASE_URL = 'http://dionysus11.ddns.net:3001';
+import { fetchWithAuth } from '@/lib/api';
 
 export function useInvestmentData() {
   const { token } = useAuth();
   const [records, setRecords] = useState<InvestmentRecord[]>([]);
   const [profits, setProfits] = useState<ProfitRecord[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const getAuthHeaders = useCallback((isPostOrPut = false) => {
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (isPostOrPut) {
-      headers['Content-Type'] = 'application/json';
-    }
-    return headers;
-  }, [token]);
 
   // API에서 데이터 로드
   const loadData = useCallback(async () => {
@@ -31,15 +19,7 @@ export function useInvestmentData() {
     }
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/investments`, {
-        headers: getAuthHeaders()
-      });
-      if (response.status === 401) {
-        // Handle unauthorized access, maybe logout user
-        console.error('Unauthorized, logging out.');
-        // You might want to call a logout function here
-        return;
-      }
+      const response = await fetchWithAuth(`/api/investments`);
       const result = await response.json();
       
       // 새로운 API 응답 형식에 맞게 수정
@@ -50,7 +30,7 @@ export function useInvestmentData() {
     } finally {
       setLoading(false);
     }
-  }, [token, getAuthHeaders]);
+  }, [token]);
 
   // 컴포넌트 마운트시 데이터 로드
   useEffect(() => {
@@ -79,9 +59,9 @@ export function useInvestmentData() {
           : Math.floor(ocrResult.foreignAmount * ocrResult.exchangeRate)
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/investments`, {
+      const response = await fetchWithAuth(`/api/investments`, {
         method: 'POST',
-        headers: getAuthHeaders(true),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           records: [recordData], // 배열 형태로 전송
           source
@@ -104,7 +84,7 @@ export function useInvestmentData() {
           
           if (firstResult.success) {
             // 매칭 완료 여부 확인 (매칭이 완료되면 records가 비어있을 것)
-            const currentRecordsResponse = await fetch(`${API_BASE_URL}/api/investments`, { headers: getAuthHeaders() });
+            const currentRecordsResponse = await fetchWithAuth(`/api/investments`);
             const currentRecords = await currentRecordsResponse.json();
             if (currentRecords.profits && currentRecords.profits.length > profits.length) {
               message = '매칭 완료! 수익이 계산되었습니다. 월별 조회에서 확인하세요.';
@@ -132,7 +112,7 @@ export function useInvestmentData() {
         message: '서버 오류가 발생했습니다.'
       };
     }
-  }, [token, loadData, getAuthHeaders, profits]);
+  }, [token, loadData, profits]);
 
   const addManualRecord = useCallback(async (data: {
     type: 'USD 사기' | 'USD 팔기';
@@ -158,9 +138,8 @@ export function useInvestmentData() {
       };
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/investments/${recordId}`, {
+      const response = await fetchWithAuth(`/api/investments/${recordId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       const result = await response.json();
@@ -185,7 +164,7 @@ export function useInvestmentData() {
         message: '서버 오류가 발생했습니다.'
       };
     }
-  }, [token, loadData, getAuthHeaders]);
+  }, [token, loadData]);
 
   const deleteProfit = useCallback(async (profitId: string): Promise<{ success: boolean; message: string }> => {
     if (!token) {
@@ -195,9 +174,8 @@ export function useInvestmentData() {
       };
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/investments?profitId=${profitId}`, {
+      const response = await fetchWithAuth(`/api/investments?profitId=${profitId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       const result = await response.json();
@@ -222,7 +200,7 @@ export function useInvestmentData() {
         message: '서버 오류가 발생했습니다.'
       };
     }
-  }, [token, loadData, getAuthHeaders]);
+  }, [token, loadData]);
 
   const clearAllData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!token) {
@@ -232,9 +210,8 @@ export function useInvestmentData() {
       };
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/investments`, {
+      const response = await fetchWithAuth(`/api/investments`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       const result = await response.json();
@@ -259,7 +236,7 @@ export function useInvestmentData() {
         message: '서버 오류가 발생했습니다.'
       };
     }
-  }, [token, loadData, getAuthHeaders]);
+  }, [token, loadData]);
 
   return {
     records,
