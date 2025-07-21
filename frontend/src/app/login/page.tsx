@@ -18,7 +18,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://dionysus11.ddns.net:3001/api/login', {
+      const response = await fetch('https://backend-dionysus11.duckdns.org/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
