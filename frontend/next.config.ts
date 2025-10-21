@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://backend-dionysus11.duckdns.org:8443/:path*',
+        destination: 'https://backend.dionysus11.store:8443/:path*',
       },
     ];
   },
