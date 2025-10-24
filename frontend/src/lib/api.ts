@@ -1,6 +1,6 @@
 
 // const API_BASE_URL = 'https://backend-dionysus11.duckdns.org:8443';
-const API_BASE_URL = 'https://backend.dionysus11.store:8443';
+const API_BASE_URL = 'http://n100-mini-pc:3001';
 
 // A wrapper around fetch to automatically add the Authorization header
 // and handle 401 Unauthorized responses.
