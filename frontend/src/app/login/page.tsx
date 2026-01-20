@@ -18,7 +18,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://n100-mini-pc:3001/api/login', {
+      const response = await fetch('http://dionysus11.store:3001/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

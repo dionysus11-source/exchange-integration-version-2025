@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://n100-mini-pc:3001/:path*',
+        destination: 'http://dionysus11.store:3001/:path*',
       },
     ];
   },

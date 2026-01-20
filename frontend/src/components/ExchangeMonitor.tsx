@@ -5,7 +5,7 @@ import axios, { isAxiosError, AxiosRequestConfig } from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { AlertTriangle, Bell, BellOff, Loader2 } from 'lucide-react';
 
-const API_BASE_URL = 'http://n100-mini-pc:3001';
+const API_BASE_URL = 'http://dionysus11.store:3001';
 
 export default function ExchangeMonitor() {
     const { token } = useAuth();
@@ -82,13 +82,13 @@ export default function ExchangeMonitor() {
 
         // 최초 실행
         fetchRate();
-        
+
         const rateInterval = setInterval(fetchRate, 60000);
 
         if (!token) {
-             return () => {
+            return () => {
                 clearInterval(rateInterval);
-             }
+            }
         }
 
         const fetchStatus = async () => {
@@ -154,7 +154,7 @@ export default function ExchangeMonitor() {
             }
         }
     };
-    
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -172,7 +172,7 @@ export default function ExchangeMonitor() {
                     <p>{autoStoppedAlert}</p>
                 </div>
             )}
-            
+
             <div className="bg-white shadow-md rounded-lg p-6">
                 <h3 className="text-lg font-medium leading-6 text-gray-900">현재 USD/KRW 환율</h3>
                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -202,7 +202,7 @@ export default function ExchangeMonitor() {
                             <BellOff className="mr-2 h-4 w-4" /> 모니터링 중지
                         </button>
                     )}
-                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${monitoring ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${monitoring ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                         {monitoring ? '모니터링 중...' : '모니터링 중지됨'}
                     </span>
                 </div>
